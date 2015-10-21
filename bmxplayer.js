@@ -1,22 +1,15 @@
 window.onload = function() {
 
-	var playing = false;
-	var player = new BmxPlay();
-	player.SetCallback(status);
-
 	document.getElementById("playlist").addEventListener("change", function() {
-		var s = this.value;
-		loadSong('songs/'+s);
+		loadSong('songs/'+this.value);
 	});
 
 	document.getElementById("playBtn").addEventListener("click", function() {
-		if (!playing) {
-			playing = true;
-			player.Play();
-		} else {
-			playing = false;
-			player.Stop();
-		}
+		player.Play();
+	});
+
+	document.getElementById("stopBtn").addEventListener("click", function() {
+		player.Stop();
 	});
 
 	function status(e) {
@@ -24,22 +17,22 @@ window.onload = function() {
 	}
 
 	function loadSong(url) {
-
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', url, true);
 		xhr.overrideMimeType('text/plain; charset=x-user-defined');
-
 		xhr.onreadystatechange = function(e) {
 			if (this.readyState == 4) {
 				player.Load(this.responseText);
-				//playing = true;
-				//player.Play();
+				player.Play();
 			}
 		};
-
 		xhr.send();
 	}
 
+	var player = new BmxPlay();
+	player.SetCallback(status);
+	player.SetCanvas(document.getElementById("canvas"));
 	loadSong('songs/default.bmx');
+	//loadSong('songs/yiruma.bmx');
 }
 

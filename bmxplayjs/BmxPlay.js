@@ -443,5 +443,9 @@ function BmxPlay() {
 		console.log("Stop.");
 		soundChannel.stop();
 	}
+
+	this.SetCanvas = function(c) {
+		snd.SetCanvas(c);
+	}
 }
 
