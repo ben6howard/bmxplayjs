@@ -6,7 +6,6 @@ window.onload = function() {
 
 	document.getElementById("playlist").addEventListener("change", function() {
 		var s = this.value;
-		player.Stop();
 		loadSong('songs/'+s);
 	});
 
@@ -33,9 +32,8 @@ window.onload = function() {
 		xhr.onreadystatechange = function(e) {
 			if (this.readyState == 4) {
 				player.Load(this.responseText);
-
-				playing = true;
-				player.Play();
+				//playing = true;
+				//player.Play();
 			}
 		};
 

@@ -18,7 +18,7 @@
 
 	// set BUFSIZE to 11025 (sampleRate/4, 250 ms) to get rid of clicks
 	// data stored as two channels, non-interleaved
-	// samples are floats, range is -32767.0 .. 32767.0
+	// samples are floats, range is -1.0 .. 1.0
 */
 
 function Sound() {
@@ -67,26 +67,26 @@ function Sound() {
 
 			nextTime = nextTime + tickPeriod;
 		}
-
-		if (playing)
-			setTimeout(update, 25);
 	}
 
 	this.addEventListener = function(event, fn) {
 		callback = fn;
 	}
 
+	var timer;
+
 	this.play = function() {
 
 		if (!playing) {
 			nextTime = audioCtx.currentTime;
 			playing = true;
-			update();
+			timer = WorkerTimer.setInterval(update, 25);
 		}
 
 		return  {
 			stop: function() {
 				playing = false;
+				WorkerTimer.clearInterval(timer);
 			}
 		}
 	}
