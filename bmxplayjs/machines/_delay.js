@@ -59,18 +59,9 @@ function _delay() {
 	}
 
 	this.Work = function(psamples, numsamples, channels) {
-
 		var delta = len * dsize;
-		var lbuf;
-		var rbuf;
-
-		if (pan==1) {
-			lbuf = buf1;
-			rbuf = buf2;
-		} else {
-			lbuf = buf2;
-			rbuf = buf1;
-		}
+		var lbuf = pan ? buf1 : buf2;
+		var rbuf = pan ? buf2 : buf1;
 
 		for (var i = 0; i < numsamples*2;) {
 			var pin = psamples[i];
@@ -86,15 +77,8 @@ function _delay() {
 			if (iw >= delta) {
 				iw = 0;
 				pan = 1 - pan;
-
-				if (pan==1) {
-					lbuf = buf1;
-					rbuf = buf2;
-				} else {
-					lbuf = buf2;
-					rbuf = buf1;
-				}
-
+				lbuf = pan ? buf1 : buf2;
+				rbuf = pan ? buf2 : buf1;
 			}
 		}
 		return true;

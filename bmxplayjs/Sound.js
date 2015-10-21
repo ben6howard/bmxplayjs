@@ -31,8 +31,6 @@ function Sound() {
 
 	var analyser = audioCtx.createAnalyser();
 
-	analyser.fftSize = 1024;
-
 	var bufferLength = analyser.frequencyBinCount;
 
 	var dataArray = new Uint8Array(bufferLength);
@@ -103,11 +101,8 @@ function Sound() {
 	var HEIGHT;
 
 	function draw() {
-
-		//if (!playing)
-		//	return;
-
 		drawVisual = requestAnimationFrame(draw);
+
 		analyser.getByteFrequencyData(dataArray);
 		//analyser.getByteTimeDomainData(dataArray);
 
@@ -133,6 +128,7 @@ function Sound() {
 	this.SetCanvas = function(c) {
 		WIDTH = c.width;
 		HEIGHT = c.height;
+		analyser.fftSize = WIDTH*2;
 		canvasCtx = c.getContext("2d");
 		draw();
 	}

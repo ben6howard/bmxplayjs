@@ -54,9 +54,7 @@ function _filter() {
 			if (d > 0) {
 
 				var amp = 1.0 / (1.0 - d);
-
 				var a = psamples[i];
-
 				a *= amp;
 
 				if (a > 32767) {
