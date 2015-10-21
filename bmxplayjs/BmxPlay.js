@@ -1,17 +1,18 @@
 function BmxPlay() {
+	var SamplesPerSec = 44100; // usually 44100, but machines should support any rate from 11050 to 96000
+
+	var PosInTick = 0; // [0..SamplesPerTick-1]
+	var CurrentTick = 0;
+	var TicksPerPattern = 0;
+
+	var BeatsPerMin = 120;
+	var TicksPerBeat = 4; // [1..32]
+	var SamplesPerTick = ~~((60 * SamplesPerSec) / (BeatsPerMin * TicksPerBeat));
+	var TicksPerSec = SamplesPerSec / SamplesPerTick; // (float)SPS / (float)SPT
 
 	var machines = [];
 	var connections = [];
-
-	var BeatsPerMin;
-	var TicksPerBeat; // [1..32]
-	var SamplesPerSec; // usually 44100, but machines should support any rate from 11050 to 96000
-	var SamplesPerTick; // (int)((60 * SPS) / (BPM * TPB))  
-	var PosInTick; // [0..SamplesPerTick-1]
-	var TicksPerSec; // (float)SPS / (float)SPT
-	
-	var CurrentTick = 0;
-	var TicksPerPattern = 0;
+	var mdata = [];
 
 	var songsize = 0;
 	var startloop = 0;
@@ -23,16 +24,15 @@ function BmxPlay() {
 
 	var volume = 1.0;
 
-	var snd = new Sound();
+	var snd = null;
 	var soundChannel = null;
-	snd.addEventListener('sampleData', sampleData);
+
 	var playing = false;
+	var songData = null;
 
-	SamplesPerSec = snd.GetSampleRate();
-	this.SamplesPerSec = SamplesPerSec;
-
-	var BUFSIZE = SamplesPerSec/4;
+	var BUFSIZE = SamplesPerSec;
 	var buf = new Float32Array(BUFSIZE*2);
+	var dataArray = new Uint8Array(BUFSIZE);
 
 	var callback = null;
 
@@ -67,8 +67,11 @@ function BmxPlay() {
 
 	this.Load = function(bytes) {
 
+		songData = bytes;
+
 		machines = [];
 		connections = [];
+		mdata = [];
 
 		var wasPlaying = playing;
 		this.Stop();
@@ -119,7 +122,7 @@ function BmxPlay() {
 
 						if (datalen>data.length) {
 							console.log('machine data is too big, ' + datalen + ' bytes');
-							return;
+							return -1;
 						}
 
 						var msd = readArray(data, datalen);
@@ -135,13 +138,8 @@ function BmxPlay() {
 						var numTracks = data.readShort();
 						m.TrackVals = readArray(data, m.numTrackParameters * numTracks);
 						m.sources = 0;
-
-						m.pMasterInfo = this;
-						m.buf = new Float32Array(BUFSIZE*2);
 						machines.push(m);
-
-						m.Init(msd);
-
+						mdata.push(msd);
 					}
 
 				break;
@@ -229,23 +227,30 @@ function BmxPlay() {
 		SamplesPerTick = ~~((60 * SamplesPerSec) / (BeatsPerMin * TicksPerBeat));
 
 		PosInTick = 0;
-		TicksPerSec = ~~(SamplesPerSec / SamplesPerTick);
 		CurrentTick = 0;
+
+		TicksPerSec = ~~(SamplesPerSec / SamplesPerTick);
 		TicksPerPattern = 16;
 
-		this.SamplesPerTick = SamplesPerTick;
-
-		for (var i=0; i<machines.length; ++i) {
-			machines[i].Tick();
+		if (callback) {
+			tick = CurrentTick>=2 ? CurrentTick-2 : 0;
+			callback ( { pos: tick, size:songsize } );
 		}
 
-		BmxWorkBuffer(buf, BUFSIZE);
+		if (snd) {
+			initMachines();
+			BmxWorkBuffer(buf, BUFSIZE);
+		}
 
-		if (wasPlaying)
+		if (wasPlaying) {
 			this.Play();
+		}
+
+		return 0;
 	}
 
 	function Tick(m, tick) {
+
 		for (var i=0; i<m.events.length; ++i) {
 			var evt = m.events[i];
 			var pos = evt[0];
@@ -259,7 +264,11 @@ function BmxPlay() {
 				}
 			}
 		}
-		
+
+		// fill pMasterInfo
+		this.SamplesPerTick = SamplesPerTick;
+		this.SamplesPerSec = SamplesPerSec;
+
 		if (m.currentRow < m.patternRows) {
 			m.loadValues(m.currentPattern, m.currentRow);
 			m.Tick();
@@ -280,12 +289,8 @@ function BmxPlay() {
 		for (var j = 0; j<machines.length; ++j) {
 			var m = machines[j];
 			m.scount = m.sources;
-
-			dest = m.buf;
-			var i = size * m.numChannels;
-
-			while (i--) {
-				dest[i] = 0;
+			for (var i=0; i<m.buf.length; ++i) {
+				m.buf[i] = 0;
 			}
 		}
 
@@ -361,22 +366,26 @@ function BmxPlay() {
 		dest = out;
 
 		for (var i = 0, j = ofs*2; i < size * 2;) {
-			dest[j++] = src[i++];
+			dest[j++] = NORM(src[i++]);
 		}
 	}
 
+	function NORM(n) { 
+		return (n<-32767) ? -32767 : ((n>32767) ? 32767 : n)
+	};
+
 	function BmxWorkBuffer(psamples, numsamples) {
+
 		var portion = 0;
 		var count = numsamples;
 		var maxsize = 0;
 		var ofs = 0;
 
 		while (count != 0) {
-
 			if (PosInTick == 0) {
 
 				if (callback) {
-					callback ( { pos:CurrentTick-2, size:songsize } );
+					callback ( { pos:CurrentTick, size:songsize } );
 				}
 
 				for (var i=0; i<machines.length; ++i) {
@@ -428,12 +437,40 @@ function BmxPlay() {
 		BmxWorkBuffer(buf, BUFSIZE);
 	}
 
+	function initSoundSystem() {
+		snd = new Sound();
+		SamplesPerSec = snd.GetSampleRate();
+		BUFSIZE = snd.GetBufferSize();
+		buf = new Float32Array(BUFSIZE*2);
+		snd.addEventListener('sampleData', sampleData);
+	}
+	
+	function initMachines() {
+		for (var i=0; i<machines.length; ++i) {
+			var m = machines[i];
+			m.pMasterInfo = { SamplesPerSec:SamplesPerSec,  SamplesPerTick:SamplesPerTick };
+			m.buf = new Float32Array(BUFSIZE*2);
+			m.Init(mdata[i]);
+			m.Tick();
+		}
+	}
+
 	this.IsPlaying = function() {
 		return playing;
 	}
 
 	this.Play = function() {
 		if (!playing) {
+			if (!snd) {
+				try {
+					initSoundSystem();
+				} catch(e) {
+					alert ("Web Audio is not supported");
+					return;
+				}
+				initMachines();
+				BmxWorkBuffer(buf, BUFSIZE);
+			}
 			playing = true;
 			soundChannel = snd.play();
 		}
@@ -449,17 +486,103 @@ function BmxPlay() {
 	}
 
 	this.SetPos = function(pos) {
-		CurrentTick = pos;
-		PosInTick = 0;
-		BmxWorkBuffer(buf, BUFSIZE);
+		if (snd) {
+			CurrentTick = pos;
+			PosInTick = 0;
+			BmxWorkBuffer(buf, BUFSIZE);
+		}
 	}
 
 	this.GetOscData = function(type, size, smooth) {
-		return snd.GetOscData(type, size, smooth);
+
+		if (dataArray.byteLength!=size) {
+			dataArray = new Uint8Array(size);
+		}
+	
+		if (snd) {
+			snd.GetOscData(dataArray, type, size, smooth);
+		}
+
+		return dataArray;
 	}
 
 	this.SetMasterVolume = function (vol) {
 		volume = vol;
+	}
+
+	this.Reload = function() {
+		PosInTick = 0;
+		CurrentTick = 0;
+		this.Load(songData);
+
+		if (!snd) {
+			initMachines();
+			BmxWorkBuffer(buf, BUFSIZE);
+		}
+
+		if (callback) {
+			callback ( { pos: 0, size:songsize } );
+		}
+	}
+
+	var renderOffset = 0;
+	var renderBuffer = null;
+	var renderCallback = null;
+
+	function renderThread() {
+		var size = renderBuffer.length;
+
+		for (var i=0; i<BUFSIZE*2 && renderOffset<size; i++) {
+			renderBuffer[renderOffset++] = Math.max(Math.min(buf[i],32767.0),-32767.0);
+		}
+
+		BmxWorkBuffer(buf, BUFSIZE);
+
+		if (renderOffset<size) {
+			setTimeout (renderThread, 0);
+		} else {
+			var sampleRate = SamplesPerSec;
+			var channels = 2;
+			var bitsPerSample = 16;
+
+			var intBuffer = new Int16Array(23);
+			var buffer = renderBuffer;
+
+			intBuffer[0] = 0x4952; // "RI"
+			intBuffer[1] = 0x4646; // "FF"
+			intBuffer[2] = (2*buffer.length + 15) & 0x0000ffff; // RIFF size
+			intBuffer[3] = ((2*buffer.length + 15) & 0xffff0000) >> 16; // RIFF size
+			intBuffer[4] = 0x4157; // "WA"
+			intBuffer[5] = 0x4556; // "VE"
+			intBuffer[6] = 0x6d66; // "fm"
+			intBuffer[7] = 0x2074; // "t "
+			intBuffer[8] = 0x0012; // fmt chunksize: 18
+			intBuffer[9] = 0x0000; //
+			intBuffer[10] = 0x0001; // format tag : 1 
+			intBuffer[11] = channels; // channels: 2
+			intBuffer[12] = sampleRate & 0x0000ffff; // sample per sec
+			intBuffer[13] = (sampleRate & 0xffff0000) >> 16; // sample per sec
+			intBuffer[14] = (2*channels*sampleRate) & 0x0000ffff; // byte per sec
+			intBuffer[15] = ((2*channels*sampleRate) & 0xffff0000) >> 16; // byte per sec
+			intBuffer[16] = 0x0004; // block align
+			intBuffer[17] = 0x0010; // bit per sample
+			intBuffer[18] = 0x0000; // cb size
+			intBuffer[19] = 0x6164; // "da"
+			intBuffer[20] = 0x6174; // "ta"
+			intBuffer[21] = (2*buffer.length) & 0x0000ffff; // data size[byte]
+			intBuffer[22] = ((2*buffer.length) & 0xffff0000) >> 16; // data size[byte]	
+			intBuffer = [intBuffer, buffer];
+			renderCallback ( intBuffer );
+		}
+	}
+
+	this.Render = function(fn, repeats) {
+		renderCallback = fn;
+		this.Stop();
+		this.Reload();
+		renderBuffer = new Uint16Array(SamplesPerTick * songsize * 2 * (repeats ? repeats : 1));
+		renderOffset = 0;
+		renderThread();
 	}
 }
 

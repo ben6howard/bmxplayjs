@@ -52,8 +52,10 @@ function _xi() {
 		play = false;
 		sn = -1;
 		basefreq = 261.7;
-
 		volpts = 0;
+
+		volenv = [];
+		wave = null;
 
 		if (msd && msd.length) {
 
@@ -115,7 +117,6 @@ function _xi() {
 	}
 
 	this.Work = function(psamples, numsamples, channels) {
-
 		if (basefreq == 0 || sn == -1) {
 			return false;
 		}

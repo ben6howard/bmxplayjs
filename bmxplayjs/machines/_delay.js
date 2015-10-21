@@ -29,12 +29,12 @@ function _delay() {
 	var buf2 = null;
 	
 	this.Init = function(msd) {
+		dlength = 0x2D;
+		feedback = 0x5D;
+		dryout = 0x80;
+		wetout = 0x67;
 		pan = 0;
 		iw = 0;
-		dlength = 0;
-		feedback = 0;
-		dryout = 0;
-		wetout = 0;
 		dsize = this.pMasterInfo.SamplesPerSec;
 		buf1 = new Float32Array(dsize);
 		buf2 = new Float32Array(dsize);

@@ -12,16 +12,16 @@ function _303() {
 	this.patterns = [];
 	this.events = [];
 
-	var tune = 0;
-	var cutoff = 20.0;
-	var resonance = 200.0;
-	var envmod = 0;
-	var decay = 0;
-	var accent = 0;
+	var tune;
+	var cutoff;
+	var resonance;
+	var envmod;
+	var decay;
+	var accent;
 	
-	var note = 0;
-	var slide = 0;
-	var endnote = 0;
+	var note;
+	var slide;
+	var endnote;
 	
 	var s;
 	var f;
@@ -45,6 +45,16 @@ function _303() {
 	var f0;
 
 	this.Init = function (msd) {
+		tune = 0x40;
+		cutoff = 0x40;
+		resonance = 0x0;
+		envmod = 0x0;
+		decay = 0x40;
+		accent = 0x0;
+	
+		note = 0;
+		slide = 0;
+		endnote = 0;
 	}
 
 	this.Tick = function () {
@@ -71,10 +81,11 @@ function _303() {
 				a = -32767.0;
 
 				smax = this.pMasterInfo.SamplesPerSec / freq;
-				dsmax = 0;
+				dsmax = 0.0;
 
 				amp = 1;
-				damp = -(1.0 * fdecay / this.pMasterInfo.SamplesPerTick);
+				damp = - ( 1.0 / this.pMasterInfo.SamplesPerTick * fdecay);
+
 				dfreq = 0;
 				da = 65536.0 / smax;
 
@@ -106,6 +117,10 @@ function _303() {
 	}
 
 	this.Work = function(psamples, numsamples, channels) {
+		if (freq==0) {
+			return false;
+		}
+
 		for (var i = 0; i < numsamples; ++i) {
 			if (amp > 0) {
 				var pin = a * amp;
@@ -116,7 +131,6 @@ function _303() {
 				buf1 = buf1 + f * (buf0 - buf1);
 
 				f += df;
-
 				psamples[i] = buf1;
 
 				//calculating saw
