@@ -8,7 +8,7 @@ function _delay() {
 	this.numTrackParameters = 0;
 	this.numChannels = 2;
 
-	this.buf = [];
+	this.buf = null;
 	this.patterns = [];
 	this.events = [];
 
@@ -24,9 +24,9 @@ function _delay() {
 	var wet;
 	var pan;
 
-	var dsize = 44100;
-	var buf1 = [];
-	var buf2 = [];
+	var dsize = 0;
+	var buf1 = null;
+	var buf2 = null;
 	
 	this.Init = function(msd) {
 		pan = 0;
@@ -35,14 +35,9 @@ function _delay() {
 		feedback = 0;
 		dryout = 0;
 		wetout = 0;
-
-		buf1.length = dsize;
-		buf2.length = dsize;
-
-		for (var i=0;i<dsize;i++) {
-			buf1[i] = 0;
-			buf2[i] = 0;
-		}
+		dsize = this.pMasterInfo.SamplesPerSec;
+		buf1 = new Float32Array(dsize);
+		buf2 = new Float32Array(dsize);
 	}
 	
 	this.Tick = function() {

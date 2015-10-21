@@ -1,7 +1,5 @@
 function BmxPlay() {
 
-	var BUFSIZE = 11025;
-	var buf = [];
 	var machines = [];
 	var connections = [];
 
@@ -23,10 +21,18 @@ function BmxPlay() {
 	var MT_GENERATOR = 1;
 	var MT_EFFECT = 2;
 
+	var volume = 1.0;
+
 	var snd = new Sound();
 	var soundChannel = null;
 	snd.addEventListener('sampleData', sampleData);
 	var playing = false;
+
+	SamplesPerSec = snd.GetSampleRate();
+	this.SamplesPerSec = SamplesPerSec;
+
+	var BUFSIZE = SamplesPerSec/4;
+	var buf = new Float32Array(BUFSIZE*2);
 
 	var callback = null;
 
@@ -66,8 +72,6 @@ function BmxPlay() {
 
 		var wasPlaying = playing;
 		this.Stop();
-
-		console.log("Loading data ("+bytes.length+" bytes)...");
 
 		var data = new ByteArray(bytes);
 
@@ -133,6 +137,7 @@ function BmxPlay() {
 						m.sources = 0;
 
 						m.pMasterInfo = this;
+						m.buf = new Float32Array(BUFSIZE*2);
 						machines.push(m);
 
 						m.Init(msd);
@@ -221,7 +226,6 @@ function BmxPlay() {
 		BeatsPerMin = machines[0].gp(2);
 		TicksPerBeat = machines[0].gp(4);
 
-		SamplesPerSec = 44100;
 		SamplesPerTick = ~~((60 * SamplesPerSec) / (BeatsPerMin * TicksPerBeat));
 
 		PosInTick = 0;
@@ -229,7 +233,6 @@ function BmxPlay() {
 		CurrentTick = 0;
 		TicksPerPattern = 16;
 
-		this.SamplesPerSec = SamplesPerSec;
 		this.SamplesPerTick = SamplesPerTick;
 
 		for (var i=0; i<machines.length; ++i) {
@@ -373,7 +376,7 @@ function BmxPlay() {
 			if (PosInTick == 0) {
 
 				if (callback) {
-					callback ( { pos:CurrentTick, size:songsize } );
+					callback ( { pos:CurrentTick-2, size:songsize } );
 				}
 
 				for (var i=0; i<machines.length; ++i) {
@@ -417,35 +420,46 @@ function BmxPlay() {
 	}
 
 	function sampleData(e) {
-		var mastervolume = 1.0/32767.0;
+		var mastervolume = volume / 32767.0;
 		for (var i = 0,j=0; i < BUFSIZE; i++) {
-			e.data.getChannelData(0)[i] = buf[j] * mastervolume;
-			e.data.getChannelData(1)[i] = buf[j+1] * mastervolume;
-			j+=2;
+			e.data.getChannelData(0)[i] = buf[j++] * mastervolume;
+			e.data.getChannelData(1)[i] = buf[j++] * mastervolume;
 		}
 		BmxWorkBuffer(buf, BUFSIZE);
 	}
 
-	this.Play = function() {
-		if (playing)
-			return;
-		playing = true;
+	this.IsPlaying = function() {
+		return playing;
+	}
 
-		console.log("Hammertime!");
-		soundChannel = snd.play();
+	this.Play = function() {
+		if (!playing) {
+			playing = true;
+			soundChannel = snd.play();
+		}
+		return playing;
 	}
 
 	this.Stop = function() {
-		if (!playing)
-			return;
-		playing = false;
-
-		console.log("Stop.");
-		soundChannel.stop();
+		if (playing) {
+			playing = false;
+			soundChannel.stop();
+		}
+		return playing;
 	}
 
-	this.SetCanvas = function(c) {
-		snd.SetCanvas(c);
+	this.SetPos = function(pos) {
+		CurrentTick = pos;
+		PosInTick = 0;
+		BmxWorkBuffer(buf, BUFSIZE);
+	}
+
+	this.GetOscData = function(type, size, smooth) {
+		return snd.GetOscData(type, size, smooth);
+	}
+
+	this.SetMasterVolume = function (vol) {
+		volume = vol;
 	}
 }
 

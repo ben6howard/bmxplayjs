@@ -8,8 +8,7 @@ function _303() {
 	this.numTrackParameters = 3;
 	this.numChannels = 1;
 
-	this.buf = [];
-
+	this.buf = null;
 	this.patterns = [];
 	this.events = [];
 

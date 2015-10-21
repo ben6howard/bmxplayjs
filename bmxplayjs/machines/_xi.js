@@ -8,7 +8,7 @@ function _xi() {
 	this.numTrackParameters = 1;
 	this.numChannels = 1;
 
-	this.buf = [];
+	this.buf = null;
 	this.patterns = [];
 	this.events = [];
 
@@ -26,7 +26,7 @@ function _xi() {
 	var finetune;
 	
 	var volenv = [];
-	var wave = [];
+	var wave = null;
 	
 	var freq;
 	var basefreq;
@@ -64,8 +64,7 @@ function _xi() {
 			volpts = msd.readByte();
 
 			for (var k = 0; k < 12; k++) {
-				var p = [ msd.readShort(), msd.readShort() ];
-				volenv.push(p);
+				volenv.push( { x : msd.readShort(), y : msd.readShort() } );
 			}
 
 			volflg = msd.readByte();
@@ -77,6 +76,8 @@ function _xi() {
 			//skip pointers
 			msd.readInt();
 			msd.readInt();
+
+			wave = new Int8Array(samplesize);
 
 			if (compression == 1) { //4-bit
 				for (var i = 0; i < samplesize/2; ++i) {
@@ -171,7 +172,7 @@ function _xi() {
 		//6 - xi's proprietary magnifier
 		tps = 6.0 / this.pMasterInfo.SamplesPerTick;
 
-		ta = volenv[0][1] / 64.0;
+		ta = volenv[0].y / 64.0;
 		env_index = 0;
 	}
 	
@@ -192,13 +193,13 @@ function _xi() {
 			return 0;
 		}
 
-		k = volenv[i][0];
+		k = volenv[i].x;
 
 		tick += tps;
 
 		if (tick >= k && last_tick < k) {
-			k = volenv[i + 1][0];
-			y = volenv[i + 1][1] / 64.0;
+			k = volenv[i + 1].x;
+			y = volenv[i + 1].y / 64.0;
 			da = (y - ta) * tps / (k - tick);
 			env_index++;
 		} else {

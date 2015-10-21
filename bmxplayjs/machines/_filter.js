@@ -8,7 +8,7 @@ function _filter() {
 	this.numTrackParameters = 0;
 	this.numChannels = 1;
 
-	this.buf = [];
+	this.buf = null;
 
 	this.patterns = [];
 	this.events = [];
@@ -51,7 +51,7 @@ function _filter() {
 			psamples[i] = buf1;
 
 			// distortion
-			if (d > 0) {
+			if (d != 0) {
 
 				var amp = 1.0 / (1.0 - d);
 				var a = psamples[i];

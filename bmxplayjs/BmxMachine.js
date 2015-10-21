@@ -8,7 +8,7 @@ function BmxMachine() {
 	this.xPos = 0;
 	this.yPos = 0;
 	
-	this.buf = [];
+	this.buf = null;
 	this.sources = 0;
 	this.scount = 0;
 
